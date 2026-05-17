@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bucket List</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d0d;
+      --surface: #141414;
+      --border:  #1e1e1e;
+      --border2: #2a2a2a;
+      --text:    #e8e8e8;
+      --muted:   #555;
+      --muted2:  #333;
+      --accent:  #c8a96e;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    .hidden { display: none !important; }
+
+    /* ── Shared form elements ── */
+    .logo { font-size: 1.4rem; font-weight: 200; letter-spacing: 0.25em; text-transform: uppercase; }
+    .subtitle { color: var(--muted); font-size: 0.82rem; text-align: center; line-height: 1.7; }
+
+    .form-group { width: 100%; display: flex; flex-direction: column; gap: 7px; }
+    .form-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+    input[type="password"],
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      background: #181818;
+      border: 1px solid var(--border2);
+      color: var(--text);
+      padding: 10px 13px;
+      font-size: 0.92rem;
+      border-radius: 4px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #555; }
+    textarea { resize: vertical; min-height: 72px; }
+    select option { background: #181818; }
+
+    .btn {
+      background: var(--text); color: var(--bg);
+      border: none; padding: 11px 24px;
+      font-size: 0.82rem; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer; border-radius: 4px;
+      transition: background 0.15s; width: 100%;
+    }
+    .btn:hover { background: #fff; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-ghost {
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border2);
+      padding: 10px 24px; font-size: 0.78rem;
+      font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+      cursor: pointer; border-radius: 4px; width: 100%;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-ghost:hover { color: #aaa; border-color: #444; }
+
+    .btn-sm {
+      padding: 7px 14px; font-size: 0.72rem;
+      width: auto; letter-spacing: 0.06em;
+    }
+
+    .btn-danger {
+      background: transparent; color: #884040;
+      border: 1px solid #3a2020; width: auto;
+      padding: 7px 14px; font-size: 0.72rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      cursor: pointer; border-radius: 4px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-danger:hover { color: #c05050; border-color: #5a2020; }
+
+    .err-msg { color: #c05050; font-size: 0.78rem; text-align: center; min-height: 1em; }
+    a { color: var(--muted); font-size: 0.78rem; } a:hover { color: #999; }
+
+    /* ── Auth / Setup center screens ── */
+    .center-screen {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 18px;
+      min-height: 100vh; max-width: 420px;
+      margin: 0 auto; padding: 40px 24px;
+    }
+
+    /* ── Main screen ── */
+    .main-wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 100px; }
+
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .top-logo { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted2); }
+    .top-right { display: flex; align-items: center; gap: 12px; }
+
+    .sync-badge { font-size: 0.68rem; letter-spacing: 0.04em; color: var(--muted2); }
+    .sync-badge.ok  { color: #3d6b3d; }
+    .sync-badge.bad { color: #6b3d3d; }
+
+    .icon-btn { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 1rem; padding: 4px; line-height: 1; transition: color 0.15s; }
+    .icon-btn:hover { color: #888; }
+
+    /* Stats bar */
+    .stats-bar { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-item { display: flex; flex-direction: column; gap: 3px; }
+    .stat-val { font-size: 1.4rem; font-weight: 200; font-variant-numeric: tabular-nums; }
+    .stat-lbl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+    /* Progress bar */
+    .prog-bar { width: 100%; height: 2px; background: var(--border); border-radius: 2px; margin-bottom: 28px; }
+    .prog-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease; }
+
+    /* Filter tabs */
+    .filters { display: flex; gap: 0; margin-bottom: 32px; border-bottom: 1px solid var(--border); }
+    .filter-tab {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      padding: 8px 20px; font-size: 0.78rem; letter-spacing: 0.08em;
+      text-transform: uppercase; border-bottom: 2px solid transparent;
+      margin-bottom: -1px; transition: color 0.15s;
+    }
+    .filter-tab:hover { color: #aaa; }
+    .filter-tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+    /* Category section */
+    .cat-section { margin-bottom: 36px; }
+
+    .cat-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .cat-name { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+    .cat-line { flex: 1; height: 1px; background: var(--border); }
+    .cat-count { font-size: 0.65rem; color: var(--muted2); }
+
+    /* Cards grid */
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 5px; padding: 16px;
+      cursor: pointer; transition: border-color 0.15s, opacity 0.3s;
+      position: relative; overflow: hidden;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .card:hover { border-color: var(--border2); }
+    .card.done-card { opacity: 0.45; }
+    .card.done-card:hover { opacity: 0.65; }
+
+    .card-title { font-size: 0.92rem; font-weight: 400; line-height: 1.35; }
+    .card.done-card .card-title { text-decoration: line-through; color: var(--muted); }
+
+    .card-meta { display: flex; flex-direction: column; gap: 3px; }
+    .card-meta-row { font-size: 0.72rem; color: var(--muted); }
+
+    .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 10px; }
+
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.todo     { background: var(--muted2); }
+    .status-dot.progress { background: var(--accent); }
+    .status-dot.done     { background: #4a8c4a; }
+
+    .done-btn {
+      background: none; border: 1px solid var(--border2); color: var(--muted);
+      width: 26px; height: 26px; border-radius: 50%;
+      cursor: pointer; font-size: 0.8rem; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, color 0.15s; flex-shrink: 0;
+    }
+    .done-btn:hover { border-color: #4a8c4a; color: #4a8c4a; }
+    .card.done-card .done-btn { border-color: #4a8c4a; color: #4a8c4a; }
+
+    @keyframes pop {
+      0%   { transform: scale(0.5); opacity: 0; }
+      60%  { transform: scale(1.25); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .done-btn.animate { animation: pop 0.28s ease; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 0; color: var(--muted2); font-size: 0.85rem; line-height: 2; }
+
+    /* FAB */
+    .fab {
+      position: fixed; bottom: 32px; right: 32px;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: var(--text); color: var(--bg);
+      border: none; font-size: 1.6rem; line-height: 1;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .fab:hover { background: #fff; transform: scale(1.07); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(2px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+
+    .modal {
+      background: #111; border: 1px solid var(--border2);
+      border-radius: 6px; padding: 28px;
+      width: 100%; max-width: 460px;
+      max-height: 90vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .modal-title { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
+    .modal-left { margin-right: auto; }
+
+    .status-row { display: flex; gap: 8px; }
+    .status-pill {
+      background: transparent; border: 1px solid var(--border2); color: var(--muted);
+      padding: 6px 14px; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+      cursor: pointer; border-radius: 20px; transition: all 0.15s;
+    }
+    .status-pill:hover { border-color: #444; color: #aaa; }
+    .status-pill.selected { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .status-pill.selected.progress { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .status-pill.selected.done { background: #4a8c4a; border-color: #4a8c4a; color: var(--bg); }
+  </style>
+</head>
+<body>
+
+<!-- ── AUTH ── -->
+<div id="s-auth" class="center-screen">
+  <div class="logo">Bucket List</div>
+  <p class="subtitle">Track the experiences you want to have.<br>Connect GitHub to save &amp; sync.</p>
+  <div class="form-group">
+    <label class="form-label" for="pat">GitHub Personal Access Token</label>
+    <input type="password" id="pat" placeholder="ghp_…" autocomplete="off" spellcheck="false">
+  </div>
+  <p class="subtitle">
+    Needs <strong style="color:#777">gist</strong> scope —
+    <a href="https://github.com/settings/tokens/new?scopes=gist&description=bucket-list" target="_blank" rel="noopener">create classic token →</a>
+  </p>
+  <button class="btn" id="connect-btn">Connect</button>
+  <div class="err-msg" id="auth-err"></div>
+  <button class="btn-ghost" id="skip-btn">Skip — local only</button>
+</div>
+
+<!-- ── MAIN ── -->
+<div id="s-main" class="hidden">
+  <div class="main-wrap">
+
+    <div class="top-bar">
+      <span class="top-logo">Bucket List</span>
+      <div class="top-right">
+        <span class="sync-badge" id="sync-badge"></span>
+        <button class="icon-btn" id="sync-btn" title="Sync now">↻</button>
+      </div>
+    </div>
+
+    <div class="stats-bar" id="stats-bar"></div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+
+    <div class="filters">
+      <button class="filter-tab active" data-filter="all">All</button>
+      <button class="filter-tab" data-filter="active">Active</button>
+      <button class="filter-tab" data-filter="done">Done</button>
+    </div>
+
+    <div id="list"></div>
+
+  </div>
+  <button class="fab" id="fab-add" title="Add item">+</button>
+</div>
+
+<!-- ── MODAL ── -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-title" id="modal-title">New Item</div>
+
+    <div class="form-group">
+      <label class="form-label">Title *</label>
+      <input type="text" id="m-title" placeholder="What do you want to do?">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select id="m-cat">
+        <option value="Travel">Travel</option>
+        <option value="Adventure">Adventure</option>
+        <option value="Learning">Learning</option>
+        <option value="Relationships">Relationships</option>
+        <option value="Creative">Creative</option>
+        <option value="Career">Career</option>
+        <option value="Health">Health</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">When (age window)</label>
+      <input type="text" id="m-age" placeholder="e.g. before 40, in my 50s, someday">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Estimated Cost ($)</label>
+      <input type="number" id="m-cost" placeholder="0" min="0">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea id="m-notes" placeholder="Details, links, ideas…"></textarea>
+    </div>
+
+    <div class="form-group" id="m-status-group">
+      <label class="form-label">Status</label>
+      <div class="status-row">
+        <button class="status-pill selected" data-s="todo">To Do</button>
+        <button class="status-pill" data-s="progress">In Progress</button>
+        <button class="status-pill" data-s="done">Done</button>
+      </div>
+    </div>
+
+    <div class="err-msg" id="modal-err"></div>
+
+    <div class="modal-actions">
+      <div class="modal-left">
+        <button class="btn-danger hidden" id="m-delete-btn">Delete</button>
+      </div>
+      <button class="btn-ghost btn-sm" id="m-cancel-btn">Cancel</button>
+      <button class="btn btn-sm" id="m-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const uid = () => Math.random().toString(36).slice(2,9) + Date.now().toString(36);
+
+  // ── State ──
+  const S = { pat: null, gistId: null, local: false, filter: 'all' };
+  let DATA = { items: [] }; // { id, title, cat, age, cost, notes, status, createdAt, completedAt }
+
+  const GIST_FILE = 'bucket-list.json';
+  const CAT_ORDER = ['Travel','Adventure','Learning','Relationships','Creative','Career','Health','Other'];
+
+  // ── Boot ──
+  function boot() {
+    S.pat    = ls('bl_pat');
+    S.gistId = ls('bl_gist_id');
+    S.local  = ls('bl_local') === '1';
+    const saved = ls('bl_data');
+    if (saved) try { DATA = JSON.parse(saved); } catch(_) {}
+
+    if (S.pat || S.local) {
+      showMain();
+      if (S.pat && S.gistId) pullGist();
+    } else {
+      show('auth');
+    }
+  }
+
+  function show(name) {
+    ['auth','main'].forEach(n => $('s-'+n).classList.add('hidden'));
+    $('s-'+name).classList.remove('hidden');
+  }
+
+  function showMain() { show('main'); render(); }
+
+  // ── Auth ──
+  $('connect-btn').onclick = async () => {
+    const pat = $('pat').value.trim();
+    if (!pat) return;
+    setBtn('connect-btn','Connecting…',true);
+    $('auth-err').textContent = '';
+    try {
+      const r = await ghFetch(pat, '/user');
+      if (!r.ok) throw new Error('Invalid token — check scopes and try again.');
+      S.pat = pat; ls('bl_pat', pat);
+      const gist = await findGist(pat);
+      if (gist) {
+        S.gistId = gist.id; ls('bl_gist_id', gist.id);
+        applyGist(gist); saveLocal();
+      }
+      showMain();
+    } catch(e) {
+      $('auth-err').textContent = e.message;
+    } finally {
+      setBtn('connect-btn','Connect',false);
+    }
+  };
+
+  $('skip-btn').onclick = () => { S.local = true; ls('bl_local','1'); showMain(); };
+
+  // ── Filters ──
+  document.querySelectorAll('.filter-tab').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.filter = btn.dataset.filter;
+      render();
+    };
+  });
+
+  // ── Sync ──
+  $('sync-btn').onclick = () => { if (S.pat && S.gistId) pullGist(); };
+
+  // ── Gist API ──
+  const API = 'https://api.github.com';
+
+  function ghFetch(pat, path, opts={}) {
+    return fetch(API + path, {
+      ...opts,
+      headers: { 'Authorization': `token ${pat}`, 'Content-Type': 'application/json', ...(opts.headers||{}) }
+    });
+  }
+
+  async function findGist(pat) {
+    for (let page = 1;;page++) {
+      const r = await ghFetch(pat, `/gists?per_page=100&page=${page}`);
+      if (!r.ok) return null;
+      const list = await r.json();
+      const hit = list.find(g => g.files[GIST_FILE]);
+      if (hit) {
+        const full = await ghFetch(pat, `/gists/${hit.id}`);
+        return full.ok ? full.json() : null;
+      }
+      if (list.length < 100) return null;
+    }
+  }
+
+  function applyGist(gist) {
+    try { DATA = JSON.parse(gist.files[GIST_FILE].content); } catch(_) {}
+  }
+
+  async function pushGist() {
+    if (!S.pat) return;
+    setBadge('syncing…');
+    const body = {
+      description: 'Bucket List — items', public: false,
+      files: { [GIST_FILE]: { content: JSON.stringify(DATA, null, 2) } }
+    };
+    const url    = S.gistId ? `/gists/${S.gistId}` : '/gists';
+    const method = S.gistId ? 'PATCH' : 'POST';
+    const r = await ghFetch(S.pat, url, { method, body: JSON.stringify(body) });
+    if (r.ok) {
+      const g = await r.json();
+      S.gistId = g.id; ls('bl_gist_id', g.id);
+      setBadge('synced ✓','ok');
+    } else {
+      setBadge('sync failed','bad');
+    }
+  }
+
+  async function pullGist() {
+    try {
+      setBadge('syncing…');
+      const r = await ghFetch(S.pat, `/gists/${S.gistId}`);
+      if (!r.ok) { setBadge(''); return; }
+      applyGist(await r.json()); saveLocal(); render();
+      setBadge('synced ✓','ok');
+    } catch(_) { setBadge(''); }
+  }
+
+  // ── Persist ──
+  function saveLocal() { ls('bl_data', JSON.stringify(DATA)); }
+  async function save() { saveLocal(); if (S.pat) await pushGist(); render(); }
+
+  // ── Render ──
+  function render() {
+    renderStats();
+    renderList();
+  }
+
+  function renderStats() {
+    const total = DATA.items.length;
+    const done  = DATA.items.filter(i => i.status === 'done').length;
+    const pct   = total ? (done / total * 100) : 0;
+    $('prog-fill').style.width = pct.toFixed(1) + '%';
+    $('stats-bar').innerHTML = [
+      [done, 'Completed'],
+      [total - done, 'Remaining'],
+      [total, 'Total'],
+    ].map(([v,l]) => `<div class="stat-item"><div class="stat-val">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
+  }
+
+  function renderList() {
+    const listEl = $('list');
+
+    let items = DATA.items;
+    if (S.filter === 'active') items = items.filter(i => i.status !== 'done');
+    if (S.filter === 'done')   items = items.filter(i => i.status === 'done');
+
+    if (!items.length) {
+      listEl.innerHTML = `<div class="empty-state">${
+        DATA.items.length === 0
+          ? 'No items yet.<br>Add your first bucket list experience.'
+          : 'Nothing to show for this filter.'
+      }</div>`;
+      return;
+    }
+
+    // Group by category
+    const groups = {};
+    CAT_ORDER.forEach(c => groups[c] = []);
+    items.forEach(item => {
+      const c = item.cat || 'Other';
+      (groups[c] || (groups['Other'] || (groups[c] = []))).push(item);
+    });
+
+    listEl.innerHTML = '';
+    CAT_ORDER.forEach(cat => {
+      const catItems = groups[cat];
+      if (!catItems || !catItems.length) return;
+
+      const sec = document.createElement('div');
+      sec.className = 'cat-section';
+      sec.innerHTML = `
+        <div class="cat-header">
+          <span class="cat-name">${cat}</span>
+          <span class="cat-line"></span>
+          <span class="cat-count">${catItems.length}</span>
+        </div>
+        <div class="cards-grid" id="grid-${cat}"></div>
+      `;
+      listEl.appendChild(sec);
+
+      const grid = sec.querySelector('.cards-grid');
+      catItems.forEach(item => {
+        const card = buildCard(item);
+        grid.appendChild(card);
+      });
+    });
+  }
+
+  function buildCard(item) {
+    const el = document.createElement('div');
+    el.className = 'card' + (item.status === 'done' ? ' done-card' : '');
+    el.dataset.id = item.id;
+
+    const metaLines = [];
+    if (item.age)  metaLines.push(item.age);
+    if (item.cost) metaLines.push('~$' + Number(item.cost).toLocaleString());
+    if (item.status === 'done' && item.completedAt) {
+      metaLines.push('done ' + fmtDate(item.completedAt));
+    }
+
+    el.innerHTML = `
+      <div class="card-title">${esc(item.title)}</div>
+      ${metaLines.length ? `<div class="card-meta">${metaLines.map(l=>`<div class="card-meta-row">${esc(l)}</div>`).join('')}</div>` : ''}
+      <div class="card-footer">
+        <span class="status-dot ${item.status}"></span>
+        <button class="done-btn" title="${item.status === 'done' ? 'Mark undone' : 'Mark done'}">✓</button>
+      </div>
+    `;
+
+    // Click card body → edit
+    el.addEventListener('click', e => {
+      if (!e.target.closest('.done-btn')) openModal(item.id);
+    });
+
+    // Done toggle
+    el.querySelector('.done-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      toggleDone(item.id, el.querySelector('.done-btn'));
+    });
+
+    return el;
+  }
+
+  async function toggleDone(id, btn) {
+    const item = DATA.items.find(i => i.id === id);
+    if (!item) return;
+
+    btn.classList.add('animate');
+    btn.addEventListener('animationend', () => btn.classList.remove('animate'), { once: true });
+
+    if (item.status === 'done') {
+      item.status = 'todo'; item.completedAt = null;
+    } else {
+      item.status = 'done'; item.completedAt = new Date().toISOString().slice(0,10);
+    }
+    await save();
+  }
+
+  // ── Modal ──
+  let editingId = null;
+  let modalStatus = 'todo';
+
+  function openModal(id=null) {
+    editingId = id;
+    const item = id ? DATA.items.find(i => i.id === id) : null;
+
+    $('modal-title').textContent = item ? 'Edit Item' : 'New Item';
+    $('m-title').value  = item ? item.title  : '';
+    $('m-cat').value    = item ? (item.cat || 'Travel') : 'Travel';
+    $('m-age').value    = item ? (item.age   || '') : '';
+    $('m-cost').value   = item ? (item.cost  || '') : '';
+    $('m-notes').value  = item ? (item.notes || '') : '';
+    $('m-delete-btn').classList.toggle('hidden', !item);
+    $('modal-err').textContent = '';
+
+    modalStatus = item ? item.status : 'todo';
+    updateStatusPills();
+
+    $('modal-overlay').classList.remove('hidden');
+    setTimeout(() => $('m-title').focus(), 50);
+  }
+
+  function closeModal() { $('modal-overlay').classList.add('hidden'); editingId = null; }
+
+  function updateStatusPills() {
+    document.querySelectorAll('.status-pill').forEach(p => {
+      p.classList.toggle('selected', p.dataset.s === modalStatus);
+      p.className = p.className.replace(/ (progress|done)/g,'');
+      if (p.classList.contains('selected')) p.classList.add(modalStatus);
+    });
+  }
+
+  document.querySelectorAll('.status-pill').forEach(p => {
+    p.onclick = () => { modalStatus = p.dataset.s; updateStatusPills(); };
+  });
+
+  $('modal-overlay').onclick = e => { if (e.target === $('modal-overlay')) closeModal(); };
+  $('m-cancel-btn').onclick  = closeModal;
+
+  $('m-save-btn').onclick = async () => {
+    const title = $('m-title').value.trim();
+    if (!title) { $('modal-err').textContent = 'Title is required.'; return; }
+
+    if (editingId) {
+      const item = DATA.items.find(i => i.id === editingId);
+      if (item) {
+        item.title = title;
+        item.cat   = $('m-cat').value;
+        item.age   = $('m-age').value.trim();
+        item.cost  = $('m-cost').value ? Number($('m-cost').value) : null;
+        item.notes = $('m-notes').value.trim();
+        if (item.status !== 'done' && modalStatus === 'done') item.completedAt = new Date().toISOString().slice(0,10);
+        if (item.status === 'done' && modalStatus !== 'done') item.completedAt = null;
+        item.status = modalStatus;
+      }
+    } else {
+      DATA.items.push({
+        id: uid(), title,
+        cat:   $('m-cat').value,
+        age:   $('m-age').value.trim(),
+        cost:  $('m-cost').value ? Number($('m-cost').value) : null,
+        notes: $('m-notes').value.trim(),
+        status: modalStatus,
+        createdAt: new Date().toISOString().slice(0,10),
+        completedAt: modalStatus === 'done' ? new Date().toISOString().slice(0,10) : null
+      });
+    }
+
+    closeModal();
+    await save();
+  };
+
+  $('m-delete-btn').onclick = async () => {
+    if (!editingId) return;
+    if (!confirm('Delete this item?')) return;
+    DATA.items = DATA.items.filter(i => i.id !== editingId);
+    closeModal();
+    await save();
+  };
+
+  $('fab-add').onclick = () => openModal();
+
+  // Keyboard: Escape closes modal, Enter in title submits
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
+  $('m-title').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('m-save-btn').click();
+  });
+
+  // ── Helpers ──
+  function ls(k, v) {
+    if (v === undefined) return localStorage.getItem(k);
+    if (v === null) localStorage.removeItem(k);
+    else localStorage.setItem(k, v);
+  }
+
+  function setBtn(id, txt, dis) { const b=$(id); b.textContent=txt; b.disabled=dis; }
+
+  function setBadge(txt, cls='') {
+    const el = $('sync-badge');
+    el.textContent = txt;
+    el.className = 'sync-badge' + (cls ? ' '+cls : '');
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString('en', { month: 'short', year: 'numeric' });
+  }
+
+  boot();
+</script>
+</body>
+</html>
