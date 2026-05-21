@@ -257,21 +257,20 @@
 </head>
 <body>
 
-<!-- ── AUTH ── -->
-<div id="s-auth" class="center-screen">
-  <div class="logo" id="auth-logo">Bucket List</div>
-  <p class="subtitle" id="auth-subtitle">Track the experiences you want to have.<br>Connect GitHub to save &amp; sync.</p>
-  <div class="form-group">
-    <label class="form-label" id="pat-label" for="pat">GitHub Personal Access Token</label>
-    <input type="password" id="pat" placeholder="ghp_…" autocomplete="off" spellcheck="false">
+<!-- ── GIST SYNC MODAL ── -->
+<div id="s-auth" class="modal-overlay hidden">
+  <div class="modal">
+    <p class="subtitle" id="auth-subtitle"></p>
+    <div class="form-group">
+      <label class="form-label" id="pat-label" for="pat"></label>
+      <input type="password" id="pat" placeholder="ghp_…" autocomplete="off" spellcheck="false">
+    </div>
+    <p class="subtitle" id="auth-scope"></p>
+    <button class="btn" id="connect-btn"></button>
+    <div class="err-msg" id="auth-err"></div>
+    <button class="btn-ghost" id="disconnect-btn" style="display:none"></button>
+    <button class="btn-ghost" id="skip-btn"></button>
   </div>
-  <p class="subtitle" id="auth-scope">
-    Needs <strong style="color:#777">gist</strong> scope —
-    <a href="https://github.com/settings/tokens/new?scopes=gist&description=bucket-list" target="_blank" rel="noopener">create classic token →</a>
-  </p>
-  <button class="btn" id="connect-btn">Connect</button>
-  <div class="err-msg" id="auth-err"></div>
-  <button class="btn-ghost" id="skip-btn">Skip — local only</button>
 </div>
 
 <!-- ── MAIN ── -->
@@ -284,6 +283,7 @@
       <div class="top-right">
         <span class="sync-badge" id="sync-badge"></span>
         <button class="icon-btn" id="sync-btn" title="Sync now">↻</button>
+        <button class="icon-btn" id="gist-btn"></button>
       </div>
     </div>
 
@@ -376,12 +376,14 @@
   const LANG = {
     en: {
       logo:           'Bucket List',
-      authSubtitle:   'Track the experiences you want to have.<br>Connect GitHub to save &amp; sync.',
+      authSubtitle:   'Connect GitHub to sync your list across devices.',
       patLabel:       'GitHub Personal Access Token',
       scopeNote:      'Needs <strong style="color:#777">gist</strong> scope — <a href="https://github.com/settings/tokens/new?scopes=gist&description=bucket-list" target="_blank" rel="noopener">create classic token →</a>',
       connectBtn:     'Connect',
       connectingBtn:  'Connecting…',
-      skipBtn:        'Skip — local only',
+      skipBtn:        'Cancel',
+      disconnectBtn:  'Disconnect',
+      gistBtn:        'Gist Sync',
       homeLink:       '← Home',
       filterAll:      'All',
       filterActive:   'Active',
@@ -419,12 +421,14 @@
     },
     zh: {
       logo:           '願望清單',
-      authSubtitle:   '記錄你想體驗的事情。<br>連接 GitHub 以儲存和同步。',
+      authSubtitle:   '連結 GitHub 以跨裝置同步清單。',
       patLabel:       'GitHub 個人存取權杖',
       scopeNote:      '需要 <strong style="color:#777">gist</strong> 權限 — <a href="https://github.com/settings/tokens/new?scopes=gist&description=bucket-list" target="_blank" rel="noopener">建立 classic token →</a>',
       connectBtn:     '連接',
       connectingBtn:  '連接中…',
-      skipBtn:        '跳過 — 僅本機儲存',
+      skipBtn:        '取消',
+      disconnectBtn:  '中斷連線',
+      gistBtn:        'Gist 同步',
       homeLink:       '← 首頁',
       filterAll:      '全部',
       filterActive:   '進行中',
@@ -472,7 +476,7 @@
   function catName(cat) { return S.lang === 'zh' ? (CAT_ZH[cat] || cat) : cat; }
 
   // ── State ──
-  const S = { pat: null, gistId: null, local: false, filter: 'all', lang: 'en' };
+  const S = { pat: null, gistId: null, filter: 'all', lang: 'en' };
   let DATA = { items: [] }; // { id, title, cat, age, cost, notes, status, createdAt, completedAt }
 
   const GIST_FILE = 'bucket-list.json';
@@ -482,13 +486,14 @@
   function applyLang() {
     document.documentElement.lang = S.lang === 'zh' ? 'zh-TW' : 'en';
 
-    // Auth
-    $('auth-logo').textContent       = t('logo');
-    $('auth-subtitle').innerHTML     = t('authSubtitle');
+    // Auth modal
+    $('auth-subtitle').textContent   = t('authSubtitle');
     $('auth-scope').innerHTML        = t('scopeNote');
     $('pat-label').textContent       = t('patLabel');
     $('connect-btn').textContent     = t('connectBtn');
+    $('disconnect-btn').textContent  = t('disconnectBtn');
     $('skip-btn').textContent        = t('skipBtn');
+    $('gist-btn').textContent        = t('gistBtn');
 
     // Main
     $('home-link').textContent       = t('homeLink');
@@ -541,23 +546,16 @@
     S.lang   = ls('bl_lang') || 'en';
     S.pat    = ls('bl_pat');
     S.gistId = ls('bl_gist_id');
-    S.local  = ls('bl_local') === '1';
     const saved = ls('bl_data');
     if (saved) try { DATA = JSON.parse(saved); } catch(_) {}
 
     applyLang();
-
-    if (S.pat || S.local) {
-      showMain();
-      if (S.pat && S.gistId) pullGist();
-    } else {
-      show('auth');
-    }
+    showMain();
+    if (S.pat && S.gistId) pullGist();
   }
 
   function show(name) {
-    ['auth','main'].forEach(n => $('s-'+n).classList.add('hidden'));
-    $('s-'+name).classList.remove('hidden');
+    $('s-main').classList.toggle('hidden', name !== 'main');
   }
 
   function showMain() { show('main'); render(); }
@@ -577,7 +575,8 @@
         S.gistId = gist.id; ls('bl_gist_id', gist.id);
         applyGist(gist); saveLocal();
       }
-      showMain();
+      $('s-auth').classList.add('hidden');
+      render();
     } catch(e) {
       $('auth-err').textContent = e.message;
     } finally {
@@ -585,7 +584,20 @@
     }
   };
 
-  $('skip-btn').onclick = () => { S.local = true; ls('bl_local','1'); showMain(); };
+  $('skip-btn').onclick = () => { $('s-auth').classList.add('hidden'); };
+  $('gist-btn').onclick = () => {
+    $('disconnect-btn').style.display = S.pat ? '' : 'none';
+    $('pat').value = '';
+    $('auth-err').textContent = '';
+    $('s-auth').classList.remove('hidden');
+  };
+  $('disconnect-btn').onclick = () => {
+    S.pat = null; S.gistId = null;
+    ls('bl_pat', null); ls('bl_gist_id', null);
+    setBadge('');
+    $('s-auth').classList.add('hidden');
+  };
+  $('s-auth').onclick = e => { if (e.target === $('s-auth')) $('s-auth').classList.add('hidden'); };
 
   // ── Filters ──
   document.querySelectorAll('.filter-tab').forEach(btn => {
